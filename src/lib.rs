@@ -4,6 +4,7 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::prelude::*;
 use std::io::Read;
 use std::process::exit;
 use toml::Value;
@@ -64,12 +65,23 @@ pub fn run() {
         Command::Get => get(&args),
         Command::Invalid => invalid(),
     }
-    // get days until event from today
-
-    //return
 }
 
 fn create_new(args: &Vec<String>) {
+    let file_data: Vec<Event> = load_events();
+
+    for event in file_data {
+        if event.name == args[2] {
+            println!("An event already exists with this name!");
+            exit(0);
+        }
+    }
+
+    let mut file = fs::OpenOptions::new().append(true).open(FILENAME).unwrap();
+
+    if let Err(_e) = writeln!(file, "wedding = 2024-05-26 14:30:00") {
+        panic!("Could not write to file");
+    }
     // let data_file_result = fs::File::open(filename);
 
     // let dates_file: File = match data_file_result {
@@ -86,14 +98,7 @@ fn get(args: &Vec<String>) {
     if args.len() < 3 {
         panic!("You must supply an event name");
     }
-
-    let file_data: Vec<Event> = match fs::read_to_string(FILENAME) {
-        Ok(data) => data,
-        Err(_error) => create_file_and_return_content(),
-    }
-    .split("\n")
-    .map(|line| Event::from_file(line))
-    .collect::<Vec<Event>>();
+    let file_data: Vec<Event> = load_events();
 
     for event in file_data {
         if event.name == args[2] {
@@ -119,6 +124,16 @@ fn create_file_and_return_content() -> String {
         Ok(_file) => String::new(),
         Err(_error) => panic!("could not find or create file"),
     }
+}
+
+fn load_events() -> Vec<Event> {
+    match fs::read_to_string(FILENAME) {
+        Ok(data) => data,
+        Err(_error) => create_file_and_return_content(),
+    }
+    .split("\n")
+    .map(|line| Event::from_file(line))
+    .collect::<Vec<Event>>()
 }
 
 fn invalid() {
