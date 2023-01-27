@@ -7,6 +7,7 @@ use std::io;
 use std::io::prelude::*;
 use std::io::Read;
 use std::process::exit;
+use text_io::read;
 use toml::Value;
 
 const DATE_FORMAT: &str = "%Y-%m-%d %T";
@@ -18,7 +19,7 @@ struct Event {
 }
 
 impl Event {
-    fn new(name: String, date: String) -> Self {
+    fn new(name: &str, date: &str) -> Self {
         Event {
             date: match Utc::datetime_from_str(&Utc, &date, DATE_FORMAT) {
                 Ok(date_time) => date_time,
@@ -27,13 +28,14 @@ impl Event {
                     Utc::now()
                 }
             },
-            name: name,
+            name: name.into(),
         }
     }
 
     fn from_file(line: &str) -> Self {
         let parts = line.split(" = ").collect::<Vec<&str>>();
-        Event::new("test".to_owned(), "2023-01-20 01:34:59".to_owned())
+        dbg!(&parts);
+        Event::new(&parts[0], &parts[1])
     }
 }
 
@@ -51,6 +53,14 @@ impl Command {
             &_ => Command::Invalid,
         }
     }
+
+    fn complsory_arguments(&self) -> usize {
+        match self {
+            Command::Get => 2,
+            Command::New => 3,
+            Command::Invalid => 0,
+        }
+    }
 }
 
 const FILENAME: &str = "days_until_dates.toml";
@@ -61,37 +71,45 @@ pub fn run() {
 
     // load event from file
     match Command::from_string(command) {
-        Command::New => create_new(&args),
+        Command::New => create_new(&args, Command::New),
         Command::Get => get(&args),
         Command::Invalid => invalid(),
     }
 }
 
-fn create_new(args: &Vec<String>) {
+fn create_new(args: &Vec<String>, command: Command) {
+    if args.len() > command.complsory_arguments() {
+        println!("Missing necessary arguments");
+        exit(0);
+    }
+
     let file_data: Vec<Event> = load_events();
 
-    for event in file_data {
-        if event.name == args[2] {
-            println!("An event already exists with this name!");
-            exit(0);
-        }
+    let mut name: String = match prompt_for_name() {
+        Ok(name) => name,
+        Err(_) => panic!("Enter a name!"),
+    };
+
+    if load_events().iter().any(|event| event.name == name) {
+        println!("An event already exists with that name!");
+        exit(0);
     }
+
+    let mut date: String = match prompt_for_date() {
+        Ok(date) => date,
+        Err(_) => panic!("Enter a date!"),
+    };
+
+    let mut time: String = match prompt_for_time() {
+        Ok(time) => time,
+        Err(_) => panic!("Enter a date!"),
+    };
 
     let mut file = fs::OpenOptions::new().append(true).open(FILENAME).unwrap();
 
-    if let Err(_e) = writeln!(file, "wedding = 2024-05-26 14:30:00") {
+    if let Err(_e) = writeln!(file, "{} = {} {}", name, date, time) {
         panic!("Could not write to file");
     }
-    // let data_file_result = fs::File::open(filename);
-
-    // let dates_file: File = match data_file_result {
-    //     Ok(file) => file,
-    //     Err(_error) => panic!("Couldn't open the file!"),
-    // };
-
-    // // get correct line by key
-    // io::BufReader::new()
-    // return diff in date between date and now.
 }
 
 fn get(args: &Vec<String>) {
@@ -132,10 +150,29 @@ fn load_events() -> Vec<Event> {
         Err(_error) => create_file_and_return_content(),
     }
     .split("\n")
+    .filter(|line| !line.is_empty())
     .map(|line| Event::from_file(line))
     .collect::<Vec<Event>>()
 }
 
 fn invalid() {
     println!("invalid!");
+}
+
+fn prompt_for_name() -> io::Result<String> {
+    println!("What's your event called?");
+    let line = read!("{}\n");
+    Ok(line)
+}
+
+fn prompt_for_date() -> io::Result<String> {
+    println!("What date is it happening? e.g 2023-10-04");
+    let line = read!("{}\n");
+    Ok(line)
+}
+
+fn prompt_for_time() -> io::Result<String> {
+    println!("What time is it happening? e.g 14:30:00");
+    let line = read!("{}\n");
+    Ok(line)
 }

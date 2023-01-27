@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.23"
+text_io = "0.1.12"
 toml = "0.5.11"
