@@ -1,14 +1,12 @@
-use chrono::offset::{FixedOffset, Local, TimeZone};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::TimeZone;
+use chrono::{DateTime, Utc};
 use std::env;
 use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use std::io::Read;
 use std::process::exit;
 use text_io::read;
-use toml::Value;
 
 const DATE_FORMAT: &str = "%Y-%m-%d %T";
 
@@ -34,7 +32,6 @@ impl Event {
 
     fn from_file(line: &str) -> Self {
         let parts = line.split(" = ").collect::<Vec<&str>>();
-        dbg!(&parts);
         Event::new(&parts[0], &parts[1])
     }
 }
@@ -83,9 +80,7 @@ fn create_new(args: &Vec<String>, command: Command) {
         exit(0);
     }
 
-    let file_data: Vec<Event> = load_events();
-
-    let mut name: String = match prompt_for_name() {
+    let name: String = match prompt_for_name() {
         Ok(name) => name,
         Err(_) => panic!("Enter a name!"),
     };
@@ -95,12 +90,12 @@ fn create_new(args: &Vec<String>, command: Command) {
         exit(0);
     }
 
-    let mut date: String = match prompt_for_date() {
+    let date: String = match prompt_for_date() {
         Ok(date) => date,
         Err(_) => panic!("Enter a date!"),
     };
 
-    let mut time: String = match prompt_for_time() {
+    let time: String = match prompt_for_time() {
         Ok(time) => time,
         Err(_) => panic!("Enter a date!"),
     };
@@ -116,19 +111,20 @@ fn get(args: &Vec<String>) {
     if args.len() < 3 {
         panic!("You must supply an event name");
     }
-    let file_data: Vec<Event> = load_events();
 
-    for event in file_data {
-        if event.name == args[2] {
-            event_output(event)
+    match load_events().iter().find(|event| event.name == args[2]) {
+        Some(event) => event_output(event),
+        None => {
+            println!("No event found with that name.");
+            exit(0);
         }
     }
 }
 
-fn event_output(event: Event) {
+fn event_output(event: &Event) {
     println!(
         "There are {} days until {}",
-        days_between(Utc::now(), event.date),
+        days_between(event.date, Utc::now()),
         event.name
     )
 }
